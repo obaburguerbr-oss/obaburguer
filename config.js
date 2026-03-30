@@ -167,7 +167,7 @@ const TRADUCAO = false;
 const LANGS = ['pt', 'en', 'es', 'fr'];
 
 // Mapeamento de bandeiras (opcional - se não definido, usa bandeira padrão)
-const BANDEIRAS = {   
+const BANDEIRAS = {
     "pt": "brazil",      // 🇧🇷 Português → Brasil
     "en": "usa",         // 🇺🇸 Inglês → EUA
     "es": "",       // 🇪🇸 Espanhol → Espanha
@@ -228,7 +228,7 @@ const LOG_LEVEL = 'debug'; // Ajuste conforme necessário
 // Função para verificar se deve logar baseado no nível
 function shouldLog(level) {
     if (!DEBUG_MODE) return level === 'error';
-    
+
     const levels = { error: 0, warn: 1, info: 2, debug: 3 };
     return levels[level] <= levels[LOG_LEVEL];
 }
@@ -253,7 +253,7 @@ function errorLog(...args) {
 // Função para logs de performance
 function perfLog(label, fn) {
     if (!shouldLog('debug')) return fn();
-    
+
     console.time(label);
     const result = fn();
     console.timeEnd(label);
@@ -263,10 +263,39 @@ function perfLog(label, fn) {
 // Função para logs de grupos (para organizar logs relacionados)
 function groupLog(label, fn) {
     if (!shouldLog('debug')) return fn();
-    
+
     console.group(label);
     const result = fn();
     console.groupEnd();
     return result;
 }
 
+
+
+
+// ====================================================================
+// TAXA DE ENTREGA PADRÃO (FIXA)
+// ====================================================================
+/**
+ * 🚚 TAXA DE ENTREGA PADRÃO
+ *
+ * Quando ativada, substitui o sistema de taxa por bairro/CEP por uma
+ * taxa fixa única. O formulário de endereço passa a solicitar apenas:
+ * Rua, Número e Observações / Ponto de referência (opcional).
+ *
+ * TAXA_ENTREGA_PADRAO_ATIVA:
+ * - true  → taxa fixa habilitada (ignora planilha de bairros)
+ * - false → comportamento padrão (CEP / bairros / planilha)
+ *
+ * TAXA_ENTREGA_PADRAO_VALOR:
+ * - Valor numérico em reais  (ex: 5.00 = R$ 5,00 | 0 = grátis)
+ *
+ * Exemplos:
+ * const TAXA_ENTREGA_PADRAO_ATIVA = true;
+ * const TAXA_ENTREGA_PADRAO_VALOR = 8.00;  // R$ 8,00 fixo
+ *
+ * const TAXA_ENTREGA_PADRAO_ATIVA = true;
+ * const TAXA_ENTREGA_PADRAO_VALOR = 0;     // Frete grátis (taxa fixa zerada)
+ */
+const TAXA_ENTREGA_PADRAO_ATIVA = true; // Habilite aqui
+const TAXA_ENTREGA_PADRAO_VALOR = 2.00;  // Valor da taxa em R$
