@@ -1607,7 +1607,7 @@
                                 onblur="this.style.borderColor='var(--cor-borda)'; this.style.outline='none'">
                         </div>
 
-                        <div id="whatsapp-field" class="hidden">
+                        <div id="whatsapp-field">
                             <label class="block text-sm font-medium mb-2"
                                 style="color: var(--cor-texto) !important;">WhatsApp *</label>
                             <div class="flex space-x-2">
@@ -1652,6 +1652,11 @@
                                     onblur="this.style.borderColor='var(--cor-borda)'; this.style.outline='none'"
                                     inputmode="numeric">
                             </div>
+                        </div>
+
+                        <div class="text-sm" style="color: var(--cor-texto-secundario, #666);">
+                            <p>Nome e WhatsApp ficam salvos neste navegador para as próximas compras. Confira os dados antes de enviar.</p>
+                            <button type="button" onclick="forgetObaCustomerProfile()" class="mt-2 underline">Trocar nome ou número</button>
                         </div>
 
                         <!-- Forma de Pagamento e Switcher de Troco - Layout responsivo -->
@@ -5650,6 +5655,7 @@
 
         // Proceed to checkout
         function proceedToCheckout() {
+            restoreObaCustomerProfile();
             if (cart.length === 0) return;
 
             closeCart();
@@ -5812,6 +5818,7 @@
 
         // Show specific step
         function showStep(step) {
+            if (step === 3) restoreObaCustomerProfile();
             document.querySelectorAll('.checkout-step').forEach(el => el.classList.add('hidden'));
             document.getElementById(`checkout-step-${step}`).classList.remove('hidden');
             currentStep = step;
@@ -10535,20 +10542,41 @@
         }
 
         // Show/hide WhatsApp field based on webhook status
+        const OBA_CUSTOMER_PROFILE_KEY = 'oba-customer-profile-v1';
+        function restoreObaCustomerProfile() {
+            try {
+                const profile = JSON.parse(localStorage.getItem(OBA_CUSTOMER_PROFILE_KEY) || 'null');
+                if (!profile || typeof profile.name !== 'string' || typeof profile.phone !== 'string') return;
+                const name = document.getElementById('customer-name');
+                const phone = document.getElementById('customer-whatsapp');
+                const country = document.getElementById('country-code');
+                if (name && !name.value.trim()) name.value = profile.name;
+                if (phone && !phone.value.trim()) {
+                    if (country && Array.from(country.options).some(option => option.value === profile.country)) country.value = profile.country;
+                    phone.value = profile.phone;
+                }
+            } catch (_) { /* Storage may be disabled; checkout remains usable. */ }
+        }
+        function rememberObaCustomerProfile() {
+            try {
+                localStorage.setItem(OBA_CUSTOMER_PROFILE_KEY, JSON.stringify({
+                    name: document.getElementById('customer-name').value.trim(),
+                    phone: document.getElementById('customer-whatsapp').value.trim(),
+                    country: document.getElementById('country-code').value
+                }));
+            } catch (_) {
+                showToast('Este navegador não permitiu salvar seus dados. Seu pedido pode continuar normalmente.', 'warning', 5000);
+            }
+        }
+        function forgetObaCustomerProfile() {
+            try { localStorage.removeItem(OBA_CUSTOMER_PROFILE_KEY); } catch (_) {}
+            document.getElementById('customer-name').value = '';
+            document.getElementById('customer-whatsapp').value = '';
+            document.getElementById('customer-name').focus();
+        }
+
         function toggleWhatsAppField() {
-            const whatsappField = document.getElementById('whatsapp-field');
-
-            // Verificação defensiva - elemento deve existir
-            if (!whatsappField) {
-                if (typeof warnLog === 'function') warnLog('⚠️ WhatsApp field element not found');
-                return;
-            }
-
-            if (isWebhookActive()) {
-                whatsappField.classList.remove('hidden');
-            } else {
-                whatsappField.classList.add('hidden');
-            }
+            document.getElementById('whatsapp-field')?.classList.remove('hidden');
         }
 
         // Focus order notes field with auto-scroll to prevent keyboard covering
@@ -10613,14 +10641,14 @@
                 hasErrors = true;
             }
 
-            // Validate WhatsApp if webhook is active
-            if (isWebhookActive()) {
+            // The customer phone is needed for the order board, regardless of the sending method.
+            {
                 const countryCodeSelect = document.getElementById('country-code');
                 const selectedCountryCode = countryCodeSelect ? countryCodeSelect.value : '55';
                 const digitsOnly = customerWhatsApp.replace(/\D/g, ''); // Extract only digits
                 const minDigits = getMinWhatsAppDigits(selectedCountryCode);
 
-                if (!customerWhatsApp || digitsOnly.length < minDigits) {
+                if (!customerWhatsApp || digitsOnly.length < minDigits || digitsOnly.length > 15 || (selectedCountryCode === '55' && ![10,11].includes(digitsOnly.length))) {
                     showFieldError('customer-whatsapp', 'WhatsApp é obrigatório e deve ter formato válido para o país selecionado');
                     hasErrors = true;
                 }
@@ -10713,6 +10741,8 @@
             } else {
                 orderData.customerWhatsApp = '';
             }
+
+            rememberObaCustomerProfile();
 
             // Show success toast and proceed
             showToast('Preparando seu pedido...', 'success', 2000);
