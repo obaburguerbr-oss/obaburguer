@@ -11163,7 +11163,7 @@
                 const discount = appliedCoupon ? Number(typeof couponDiscount === 'number' ? couponDiscount : window.couponDiscount || 0) : 0;
                 showToast('Enviando pedido para o Oba Burguer…', 'info', 4000);
                 const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 20000);
+                const timeout = setTimeout(() => controller.abort(), 8000);
                 let response;
                 try {
                     response = await fetch('https://controle-financeiro-empresas.viralatalanche.chatgpt.site/api/oba-orders/receive', {
@@ -11174,10 +11174,10 @@
                 const receipt = await response.json();
                 if (!response.ok || !receipt.received) throw new Error(receipt.error || 'Não foi possível confirmar o pedido.');
                 showToast('Pedido #' + receipt.id + ' recebido pelo Oba Burguer!', 'success', 5000);
-                sendToWhatsAppOriginal();
             } catch (error) {
-                showToast('Não foi possível confirmar o pedido no restaurante. Seu carrinho foi mantido. Tente novamente.', 'error', 7000);
+                showToast('O painel está indisponível. Continue pelo WhatsApp para enviar seu pedido ao restaurante.', 'warning', 7000);
             } finally { grazyonOrderSending = false; }
+            sendToWhatsAppOriginal();
         }
 
         function sendToWhatsAppOriginal() {
