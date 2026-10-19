@@ -11145,7 +11145,42 @@
         }
 
         // Send to WhatsApp or Webhook
-        function sendToWhatsApp() {
+        let grazyonOrderSending = false;
+        async function sendToWhatsApp() {
+            if (cart.length === 0 || grazyonOrderSending) return;
+            grazyonOrderSending = true;
+            try {
+                const message = formatOrderMessage(getAppConfig().nome_restaurante || 'Oba Burguer');
+                const fingerprint = JSON.stringify({cart, orderData, message});
+                let pending;
+                try { pending = JSON.parse(localStorage.getItem('oba-pending-panel-order') || 'null'); } catch (_) {}
+                if (!pending || pending.fingerprint !== fingerprint) {
+                    pending = {fingerprint, eventId: crypto.randomUUID()};
+                    localStorage.setItem('oba-pending-panel-order', JSON.stringify(pending));
+                }
+                const subtotal = cart.reduce((sum, item) => sum + Math.max(0, parsePrice(item.preco)) * item.quantity, 0);
+                const fee = orderData.deliveryType === 'delivery' ? Number(orderData?.address?.deliveryFee || currentDeliveryFee || 0) : 0;
+                const discount = appliedCoupon ? Number(typeof couponDiscount === 'number' ? couponDiscount : window.couponDiscount || 0) : 0;
+                showToast('Enviando pedido para o Oba Burguer…', 'info', 4000);
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 20000);
+                let response;
+                try {
+                    response = await fetch('https://controle-financeiro-empresas.viralatalanche.chatgpt.site/api/oba-orders/receive', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'}, signal: controller.signal,
+                        body: JSON.stringify({eventId: pending.eventId, customer: orderData.customerName, phone: orderData.customerWhatsApp || '', delivery: orderData.deliveryType, message, totalCents: Math.round(Math.max(0, subtotal + fee - discount) * 100)})
+                    });
+                } finally { clearTimeout(timeout); }
+                const receipt = await response.json();
+                if (!response.ok || !receipt.received) throw new Error(receipt.error || 'Não foi possível confirmar o pedido.');
+                showToast('Pedido #' + receipt.id + ' recebido pelo Oba Burguer!', 'success', 5000);
+                sendToWhatsAppOriginal();
+            } catch (error) {
+                showToast('Não foi possível confirmar o pedido no restaurante. Seu carrinho foi mantido. Tente novamente.', 'error', 7000);
+            } finally { grazyonOrderSending = false; }
+        }
+
+        function sendToWhatsAppOriginal() {
             if (cart.length === 0) return;
 
             // Get configuration data
@@ -11750,6 +11785,7 @@
             // 8. Reset sistema de cupons
             resetCouponSystem();
 
+            localStorage.removeItem('oba-pending-panel-order');
             // 9. Fechar checkout
             closeCheckout();
 
